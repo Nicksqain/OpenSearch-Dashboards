@@ -67,11 +67,11 @@ run(
       {
         title: 'Extracting Default Messages',
         task: ({ config }) =>
-          new Listr(extractDefaultMessages(config, srcPaths), { exitOnError: true }),
+          new Listr(extractDefaultMessages(config!, srcPaths), { exitOnError: true }),
       },
       {
         title: 'Writing to file',
-        enabled: (ctx) => outputDir && ctx.messages.size,
+        enabled: (ctx) => Boolean(outputDir && ctx.messages.size),
         task: async (ctx) => {
           const sortedMessages = [...ctx.messages].sort(([key1], [key2]) =>
             key1.localeCompare(key2)
@@ -90,7 +90,7 @@ run(
       const reporter = new ErrorReporter();
       const messages: Map<string, { message: string }> = new Map();
       await list.run({ messages, reporter });
-    } catch (error) {
+    } catch (error: ErrorReporter | Error) {
       process.exitCode = 1;
       if (error instanceof ErrorReporter) {
         error.errors.forEach((e: string | Error) => log.error(e));

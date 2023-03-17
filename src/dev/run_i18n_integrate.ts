@@ -34,6 +34,7 @@ import Listr from 'listr';
 import { createFailError, run } from '@osd/dev-utils';
 import { ErrorReporter, integrateLocaleFiles } from './i18n';
 import { extractDefaultMessages, mergeConfigs } from './i18n/tasks';
+import { ListrContext } from './run_i18n_check';
 
 run(
   async ({
@@ -90,30 +91,32 @@ run(
 
     const srcPaths = Array().concat(path || ['./src', './packages']);
 
-    const list = new Listr([
+    const list = new Listr<ListrContext>([
       {
         title: 'Merging .i18nrc.json files',
-        task: () => new Listr(mergeConfigs(includeConfig), { exitOnError: true }),
+        task: async () => new Listr(mergeConfigs(includeConfig), { exitOnError: true }),
       },
       {
         title: 'Extracting Default Messages',
-        task: ({ config }) =>
-          new Listr(extractDefaultMessages(config, srcPaths), { exitOnError: true }),
+        task: async ({ config }) =>
+          new Listr(extractDefaultMessages(config!, srcPaths), { exitOnError: true }),
       },
       {
         title: 'Integrating Locale File',
         task: async ({ messages, config }) => {
-          await integrateLocaleFiles(messages, {
-            sourceFileName: source,
-            targetFileName: target,
-            dryRun,
-            ignoreIncompatible,
-            ignoreUnused,
-            ignoreMissing,
-            ignoreMalformed,
-            config,
-            log,
-          });
+          if (config) {
+            await integrateLocaleFiles(messages, {
+              sourceFileName: source,
+              targetFileName: target,
+              dryRun,
+              ignoreIncompatible,
+              ignoreUnused,
+              ignoreMissing,
+              ignoreMalformed,
+              config,
+              log,
+            });
+          }
         },
       },
     ]);
@@ -123,10 +126,10 @@ run(
       const messages: Map<string, { message: string }> = new Map();
       await list.run({ messages, reporter });
       process.exitCode = 0;
-    } catch (error) {
+    } catch (error: ErrorReporter | Error) {
       process.exitCode = 1;
       if (error instanceof ErrorReporter) {
-        error.errors.forEach((e: string | Error) => log.error(e));
+        ErrorReporter.errors.forEach((e: string | Error) => log.error(e));
       } else {
         log.error('Unhandled exception!');
         log.error(error);
